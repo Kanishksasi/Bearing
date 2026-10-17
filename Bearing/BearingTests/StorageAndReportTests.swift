@@ -46,6 +46,14 @@ final class StorageAndReportTests: XCTestCase {
         XCTAssertEqual(try store.context.fetch(FetchDescriptor<UserSettings>()).count, 0)
     }
 
+    func testDeleteAllMyDataAlsoRemovesTheExportedPDF() throws {
+        let store = try makeStore()
+        let url = try ReportFile.write(ReportBuilder.makePDF(latest: [], history: []))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        try store.deleteAllData()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+    }
+
     func testSettingsDefaultToFrontCameraAndSpokenPrompts() throws {
         let settings = try makeStore().settings()
         XCTAssertFalse(settings.caregiverMode)

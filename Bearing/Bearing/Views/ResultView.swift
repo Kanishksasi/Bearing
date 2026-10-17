@@ -64,16 +64,13 @@ struct ReportShareButton: View {
             }
         }
         .task(id: latest.count + history.count) { fileURL = makeFile() }
+        .onDisappear {
+            ReportFile.remove()
+            fileURL = nil
+        }
     }
 
     private func makeFile() -> URL? {
-        let data = ReportBuilder.makePDF(latest: latest, history: history)
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Bearing-report.pdf")
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
+        try? ReportFile.write(ReportBuilder.makePDF(latest: latest, history: history))
     }
 }

@@ -30,8 +30,9 @@ struct SessionStore {
         return created
     }
 
-    /// Removes every saved session and the settings.
+    /// Removes every saved session, the settings, and any exported report left in temporary storage.
     func deleteAllData() throws {
+        ReportFile.remove()
         try context.delete(model: Session.self)
         try context.delete(model: UserSettings.self)
         try context.save()
