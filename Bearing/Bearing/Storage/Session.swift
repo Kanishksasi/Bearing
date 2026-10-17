@@ -68,9 +68,12 @@ struct SessionMetric: Equatable, Sendable {
 final class UserSettings {
     var caregiverMode: Bool
     var spokenPrompts: Bool
+    /// The default value on the property lets SwiftData add this field to an older saved store.
+    var hasSeenIntro: Bool = false
 
-    init(caregiverMode: Bool = false, spokenPrompts: Bool = true) {
+    init(caregiverMode: Bool = false, spokenPrompts: Bool = true, hasSeenIntro: Bool = false) {
         self.caregiverMode = caregiverMode
         self.spokenPrompts = spokenPrompts
+        self.hasSeenIntro = hasSeenIntro
     }
 }

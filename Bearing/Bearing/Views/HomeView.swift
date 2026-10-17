@@ -1,6 +1,14 @@
 import SwiftUI
+import SwiftData
 
 struct HomeView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query private var settings: [UserSettings]
+
+    private var showIntro: Binding<Bool> {
+        Binding(get: { settings.first?.hasSeenIntro == false }, set: { _ in })
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -30,6 +38,14 @@ struct HomeView: View {
                 }
             }
             .navigationTitle("Bearing")
+        }
+        .task { _ = try? SessionStore(context: modelContext).settings() }
+        .fullScreenCover(isPresented: showIntro) {
+            IntroView {
+                settings.first?.hasSeenIntro = true
+                try? modelContext.save()
+            }
+            .interactiveDismissDisabled()
         }
     }
 

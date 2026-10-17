@@ -70,9 +70,43 @@ final class BalanceEngineTests: XCTestCase {
     }
 
     func testSmallAnkleDifferenceIsNotALift() {
-        // 40 px of 500 is 0.08, under the 0.12 start line.
+        // 40 px of 500 is 0.08, under the 0.12 start line. The body is fully visible, so the reason is noLift.
         let (outcome, _) = run(seconds: 5) { _ in 140 }
-        XCTAssertNil(result(outcome))
+        XCTAssertEqual(outcome, .rejected(.noLift))
+    }
+
+    func testVisibleBodyThatNeverLiftsAFootIsRejectedAsNoLift() {
+        let (outcome, engine) = run(seconds: 16) { _ in self.planted }
+        XCTAssertTrue(engine.isComplete)
+        XCTAssertEqual(outcome, .rejected(.noLift))
+    }
+
+    func testBodyVisibleInOnlyHalfTheFramesIsLowConfidenceNotNoLift() {
+        let engine = BalanceEngine()
+        engine.start()
+        for i in 0..<160 {
+            let t = Double(i) * 0.1
+            engine.ingest(i % 2 == 0 ? Synthetic.standingFrame(rightAnkleY: planted, t: t)
+                                     : Synthetic.frame([:], t: t))
+        }
+        XCTAssertEqual(engine.finish(), .rejected(.lowConfidence))
+    }
+
+    func testBodyVisibleInExactlyEightyPercentOfFramesIsNoLift() {
+        let engine = BalanceEngine()
+        engine.start()
+        for i in 0..<150 {
+            let t = Double(i) * 0.1
+            // Every fifth frame is empty, so 80 percent are visible.
+            engine.ingest(i % 5 == 0 ? Synthetic.frame([:], t: t)
+                                     : Synthetic.standingFrame(rightAnkleY: planted, t: t))
+        }
+        XCTAssertEqual(engine.finish(), .rejected(.noLift))
+    }
+
+    func testNoLiftMessageSaysWhatToDo() {
+        XCTAssertEqual(RejectReason.noLift.message,
+                       "We did not see a foot lift. Lift one foot off the floor and try again.")
     }
 
     func testFootThatNeverLiftsEndsAfterTheWaitLimit() {

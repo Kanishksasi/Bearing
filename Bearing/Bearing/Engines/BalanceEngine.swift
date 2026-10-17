@@ -62,8 +62,9 @@ final class BalanceEngine: MovementEngine {
 
     func finish() -> TrialOutcome {
         if let reason = tracker.rejection() { return .rejected(reason) }
+        // The body was seen well enough (the tracker found no problem), but the foot never left the floor.
         guard let start = holdStart, let foot = liftedFoot, !shoulderWidths.isEmpty else {
-            return .rejected(.lowConfidence)
+            return .rejected(.noLift)
         }
         let end = holdEnd ?? tracker.lastTimestamp
         let hold = min(end - start, config.balanceHoldCapSeconds)

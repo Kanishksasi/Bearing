@@ -8,6 +8,13 @@ struct HistoryView: View {
         Exercise.allCases.compactMap { exercise in sessions.first { $0.exercise == exercise } }
     }
 
+    /// Only metrics with at least two sessions get a chart.
+    private var chartableTrends: [MetricTrend] {
+        Exercise.allCases
+            .flatMap { TrendService.trends(for: $0, in: sessions, last: 10) }
+            .filter(\.isChartable)
+    }
+
     var body: some View {
         List {
             if sessions.isEmpty {
@@ -18,6 +25,15 @@ struct HistoryView: View {
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                     DisclaimerView()
+                }
+                if !chartableTrends.isEmpty {
+                    Section {
+                        ForEach(chartableTrends, id: \.label) { TrendChart(trend: $0) }
+                    } header: {
+                        Text("Your last 10 sessions")
+                    } footer: {
+                        Text("The dashed line is your starting point.")
+                    }
                 }
                 Section("Past sessions") {
                     ForEach(sessions) { session in

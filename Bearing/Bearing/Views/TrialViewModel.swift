@@ -10,6 +10,7 @@ final class TrialViewModel: ObservableObject {
     let exercise: Exercise
     let camera: CameraService
     let mirrorPreview: Bool
+    let caregiverMode: Bool
 
     @Published private(set) var phase: Phase = .loading
     @Published private(set) var alignment = AlignmentStatus.blocked
@@ -38,6 +39,7 @@ final class TrialViewModel: ObservableObject {
         self.exercise = exercise
         self.camera = CameraService(caregiverMode: caregiverMode)
         self.mirrorPreview = !caregiverMode
+        self.caregiverMode = caregiverMode
         speech.isEnabled = spokenPrompts
         switch exercise {
         case .armRaise:
@@ -101,6 +103,7 @@ final class TrialViewModel: ObservableObject {
         elapsed = 0
         lastRejection = nil
         phase = .running
+        Haptics.trialStarted()
         say("Go.")
     }
 
@@ -154,10 +157,12 @@ final class TrialViewModel: ObservableObject {
             acceptedTrials += 1
             record(metrics)
             lastRejection = nil
+            Haptics.trySaved()
             say("Done.")
         case .rejected(let reason):
             rejectedTrials += 1
             lastRejection = reason
+            Haptics.tryNotCounted()
             say(reason.message)
         }
         phase = attemptIndex + 1 < attempts.count ? .attemptResult : .finished

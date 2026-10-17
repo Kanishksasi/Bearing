@@ -25,11 +25,16 @@ enum ReportBuilder {
                 guard y < page.height - 170 else { break }
                 y = draw(session.exercise.title, font: .boldSystemFont(ofSize: 15), at: y)
                 let comparisons = BaselineService.compare(session, with: history)
+                // The line shows the five sessions up to this one, so an older report never shows later values.
+                let upToThisSession = history.filter { $0.date <= session.date }
+                let trends = TrendService.trends(for: session.exercise, in: upToThisSession, last: 5)
                 for metric in session.metrics {
                     let note = comparisons.first { $0.label == metric.label }?.text ?? ""
+                    let recent = trends.first { $0.label == metric.label }?.values ?? []
                     y = drawRow(label: metric.label,
                                 value: "\(metric.text) \(metric.unit)",
                                 note: note,
+                                trend: recent,
                                 at: y)
                 }
                 let counts = "Tries kept: \(session.acceptedTrials). Tries not counted: \(session.rejectedTrials)."
@@ -43,14 +48,43 @@ enum ReportBuilder {
         }
     }
 
-    private static func drawRow(label: String, value: String, note: String, at y: CGFloat) -> CGFloat {
+    private static let sparkSize = CGSize(width: 84, height: 22)
+
+    private static func drawRow(label: String, value: String, note: String, trend: [Double], at y: CGFloat) -> CGFloat {
         let valueFont = UIFont.boldSystemFont(ofSize: 22)
         let width = page.width - margin * 2
         value.draw(at: CGPoint(x: margin, y: y), withAttributes: [.font: valueFont])
+
+        let detailX = margin + 170
+        let detailWidth = width - 170 - sparkSize.width - 12
         let detail = note.isEmpty ? label : "\(label). \(note)"
-        detail.draw(in: CGRect(x: margin + 170, y: y + 5, width: width - 170, height: 18),
-                    withAttributes: [.font: UIFont.systemFont(ofSize: 12), .foregroundColor: UIColor.darkGray])
+        detail.draw(in: CGRect(x: detailX, y: y + 2, width: detailWidth, height: 26),
+                    withAttributes: [.font: UIFont.systemFont(ofSize: 10.5), .foregroundColor: UIColor.darkGray])
+
+        let sparkRect = CGRect(x: page.width - margin - sparkSize.width, y: y + 4,
+                               width: sparkSize.width, height: sparkSize.height)
+        if let path = sparklinePath(values: trend, in: sparkRect) {
+            UIColor.darkGray.setStroke()
+            path.lineWidth = 1.5
+            path.lineJoinStyle = .round
+            path.stroke()
+        }
         return y + 30
+    }
+
+    /// A line through the values, scaled to fit the rectangle. Needs at least two values.
+    /// A flat series is drawn across the middle.
+    static func sparklinePath(values: [Double], in rect: CGRect) -> UIBezierPath? {
+        guard values.count >= 2, let low = values.min(), let high = values.max() else { return nil }
+        let span = high - low
+        let path = UIBezierPath()
+        for (index, value) in values.enumerated() {
+            let x = rect.minX + rect.width * CGFloat(index) / CGFloat(values.count - 1)
+            let fraction = span > 0 ? CGFloat((value - low) / span) : 0.5
+            let point = CGPoint(x: x, y: rect.maxY - rect.height * fraction)
+            if index == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        }
+        return path
     }
 
     @discardableResult

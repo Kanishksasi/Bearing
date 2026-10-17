@@ -5,9 +5,10 @@ import SwiftData
 struct SessionStore {
     let context: ModelContext
 
-    static func makeContainer(inMemory: Bool = false) throws -> ModelContainer {
+    static func makeContainer(inMemory: Bool = false, url: URL? = nil) throws -> ModelContainer {
         let schema = Schema([Session.self, UserSettings.self])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
+        let configuration = url.map { ModelConfiguration(schema: schema, url: $0) }
+            ?? ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
         return try ModelContainer(for: schema, configurations: [configuration])
     }
 

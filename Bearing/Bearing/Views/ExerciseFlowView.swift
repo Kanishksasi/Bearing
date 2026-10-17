@@ -18,6 +18,8 @@ struct ExerciseFlowView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Session.date) private var history: [Session]
     @State private var savedSession: Session?
+    @State private var pendingSession: Session?
+    @State private var saveFailed = false
 
     init(exercise: Exercise, caregiverMode: Bool, spokenPrompts: Bool) {
         _model = StateObject(wrappedValue: TrialViewModel(exercise: exercise,
@@ -33,7 +35,7 @@ struct ExerciseFlowView: View {
             case .denied:
                 CameraDeniedView()
             case .safety:
-                SafetyView { model.acknowledgeSafety() }
+                SafetyView(caregiverMode: model.caregiverMode) { model.acknowledgeSafety() }
             case .finished:
                 finishedView
             default:
@@ -69,23 +71,27 @@ struct ExerciseFlowView: View {
         .padding(.bottom, 8)
     }
 
+    /// Prompt text is one size larger in caregiver mode.
+    private var promptFont: Font { model.caregiverMode ? .title2 : .headline }
+    private var detailFont: Font { model.caregiverMode ? .title3 : .body }
+
     @ViewBuilder private var statusText: some View {
         switch model.phase {
         case .aligning:
             Text(model.alignment.hint)
-                .font(.headline)
+                .font(promptFont)
                 .multilineTextAlignment(.center)
         case .running:
             Text("Time: \(Int(model.elapsed)) seconds")
-                .font(.headline)
+                .font(promptFont)
                 .monospacedDigit()
         case .attemptResult:
             VStack(spacing: 4) {
                 if let reason = model.lastRejection {
-                    Text("Try not counted").font(.headline)
-                    Text(reason.message).multilineTextAlignment(.center)
+                    Text("Try not counted").font(promptFont)
+                    Text(reason.message).font(detailFont).multilineTextAlignment(.center)
                 } else {
-                    Text("Try saved").font(.headline)
+                    Text("Try saved").font(promptFont)
                 }
             }
         default:
@@ -97,16 +103,23 @@ struct ExerciseFlowView: View {
         VStack(spacing: 10) {
             switch model.phase {
             case .aligning:
-                Button("Start") { model.startTrial() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!model.alignment.canStart)
+                if model.caregiverMode {
+                    HoldToStartButton(isEnabled: model.alignment.canStart) { model.startTrial() }
+                } else {
+                    Button("Start") { model.startTrial() }
+                        .buttonStyle(.borderedProminent)
+                        .frame(minHeight: 44)
+                        .disabled(!model.alignment.canStart)
+                }
             case .running:
                 Button("Stop") { model.stopTrial() }
                     .buttonStyle(.borderedProminent)
                     .tint(.red)
+                    .frame(minHeight: 44)
             case .attemptResult:
                 Button("Next try") { model.nextAttempt() }
                     .buttonStyle(.borderedProminent)
+                    .frame(minHeight: 44)
             default:
                 EmptyView()
             }
@@ -114,8 +127,10 @@ struct ExerciseFlowView: View {
                 model.repeatPrompt()
             } label: {
                 Label("Repeat instructions", systemImage: "speaker.wave.2")
+                    .font(detailFont)
             }
             .buttonStyle(.bordered)
+            .frame(minHeight: 44)
         }
         .controlSize(.large)
         .frame(maxWidth: .infinity)
@@ -126,6 +141,8 @@ struct ExerciseFlowView: View {
     @ViewBuilder private var finishedView: some View {
         if let session = savedSession {
             ResultView(session: session, history: history)
+        } else if saveFailed, let session = pendingSession {
+            SaveFailedView(session: session) { saveIfNeeded() }
         } else if model.hasAnyNumbers {
             ProgressView()
         } else {
@@ -133,17 +150,50 @@ struct ExerciseFlowView: View {
         }
     }
 
+    /// Keeps the same unsaved session between tries, so the numbers are never lost.
     private func saveIfNeeded() {
         guard savedSession == nil, model.hasAnyNumbers else { return }
-        let session = model.makeSession()
+        let session = pendingSession ?? model.makeSession()
+        pendingSession = session
         do {
             try SessionStore(context: modelContext).save(session)
             savedSession = session
+            saveFailed = false
         } catch {
-            savedSession = nil
+            saveFailed = true
         }
     }
+}
 
+/// Shown when saving fails. The numbers stay on screen and the person can try again.
+private struct SaveFailedView: View {
+    let session: Session
+    let retry: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("We could not save this session.")
+                    .font(.title2.bold())
+                ForEach(session.metrics, id: \.label) { metric in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(metric.text) \(metric.unit)")
+                            .font(.system(.largeTitle, design: .rounded).bold())
+                            .minimumScaleFactor(0.6)
+                        Text(metric.label).font(.subheadline)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+                Text("Tries kept: \(session.acceptedTrials). Tries not counted: \(session.rejectedTrials).")
+                    .font(.subheadline)
+                Button("Try again", action: retry)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                DisclaimerView()
+            }
+            .padding(16)
+        }
+    }
 }
 
 private struct NoNumbersView: View {
@@ -162,6 +212,7 @@ private struct NoNumbersView: View {
 }
 
 private struct SafetyView: View {
+    let caregiverMode: Bool
     let acknowledge: () -> Void
 
     var body: some View {
@@ -173,11 +224,12 @@ private struct SafetyView: View {
             Text("Stay safe")
                 .font(.title.bold())
             Text(SafetyText.message)
-                .font(.title3)
+                .font(caregiverMode ? .title2 : .title3)
                 .multilineTextAlignment(.leading)
             Button("I understand", action: acknowledge)
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .frame(minHeight: 44)
         }
         .padding(24)
     }

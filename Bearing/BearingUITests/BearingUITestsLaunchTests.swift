@@ -10,6 +10,8 @@ final class BearingUITestsLaunchTests: XCTestCase {
     func testLaunch() throws {
         let app = XCUIApplication()
         app.launch()
+        let start = app.buttons["Get started"]
+        if start.waitForExistence(timeout: 5) { start.tap() }
 
         XCTAssertTrue(app.navigationBars["Bearing"].waitForExistence(timeout: 10))
         let attachment = XCTAttachment(screenshot: app.screenshot())

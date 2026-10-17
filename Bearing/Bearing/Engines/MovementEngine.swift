@@ -5,6 +5,7 @@ enum RejectReason: String, Codable, Sendable {
     case lowConfidence
     case outOfFrame
     case trunkLean
+    case noLift
 
     var message: String {
         switch self {
@@ -12,6 +13,7 @@ enum RejectReason: String, Codable, Sendable {
         case .lowConfidence: return "The camera could not see you well. Try better light."
         case .outOfFrame: return "Part of your body left the picture. Step back and try again."
         case .trunkLean: return "Your body leaned too far. Stand tall and try again."
+        case .noLift: return "We did not see a foot lift. Lift one foot off the floor and try again."
         }
     }
 }

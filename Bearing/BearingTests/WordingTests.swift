@@ -12,9 +12,9 @@ final class WordingTests: XCTestCase {
     }
 
     private var allUserText: [String] {
-        var text: [String] = [SafetyText.message]
+        var text: [String] = [SafetyText.message, IntroText.title, IntroText.button] + IntroText.lines
         text += Exercise.allCases.map(\.title)
-        text += [RejectReason.tilt, .lowConfidence, .outOfFrame, .trunkLean].map(\.message)
+        text += [RejectReason.tilt, .lowConfidence, .outOfFrame, .trunkLean, .noLift].map(\.message)
         let statuses = [
             AlignmentStatus(jointsInFrame: true, shouldersLevel: true, distanceRight: true, tiltWithinLimit: false),
             AlignmentStatus(jointsInFrame: false, shouldersLevel: true, distanceRight: true, tiltWithinLimit: true),
@@ -47,5 +47,16 @@ final class WordingTests: XCTestCase {
     func testBannedWordCheckCatchesWordsAndStaysQuietOtherwise() {
         XCTAssertEqual(bannedWords(in: "A good result"), ["good"])
         XCTAssertEqual(bannedWords(in: "Share with your clinician"), [])
+    }
+
+    func testIntroHasThreeShortLinesAboutWhatItDoesPrivacyAndTracking() {
+        XCTAssertEqual(IntroText.lines.count, 3)
+        for line in IntroText.lines {
+            XCTAssertLessThanOrEqual(line.split(separator: " ").count, 12, "Too long for a quick read: \(line)")
+        }
+        XCTAssertTrue(IntroText.lines[1].contains("never leaves this phone"))
+        XCTAssertTrue(IntroText.lines[1].contains("never saved"))
+        XCTAssertTrue(IntroText.lines[2].contains("personal tracking only"))
+        XCTAssertEqual(IntroText.button, "Get started")
     }
 }

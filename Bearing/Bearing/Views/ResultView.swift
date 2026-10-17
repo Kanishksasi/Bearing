@@ -33,6 +33,12 @@ struct ResultView: View {
                     .accessibilityElement(children: .combine)
                 }
 
+                if BaselineService.isInBaselineSet(session, in: history) {
+                    Text("This session helps set your starting point.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
                 Text("Tries kept: \(session.acceptedTrials). Tries not counted: \(session.rejectedTrials).")
                     .font(.subheadline)
 

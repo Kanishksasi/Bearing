@@ -50,8 +50,12 @@ struct SettingsView: View {
 
     private func deleteAll() {
         do {
-            try SessionStore(context: modelContext).deleteAllData()
-            ensureSettings()
+            let store = SessionStore(context: modelContext)
+            try store.deleteAllData()
+            // Settings come back with the intro marked as seen, so deleting data does not interrupt the person.
+            let fresh = try store.settings()
+            fresh.hasSeenIntro = true
+            try modelContext.save()
         } catch {
             deleteFailed = true
         }
